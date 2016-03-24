@@ -4,8 +4,13 @@
 *.jar
 *.war
 *.ear
-
+*.swp
 # Mojang and Forge stuff - DO NOT ACCIDENTALLY REDISTRIBUTE! #
+gradlew
+gradle/
+eclipse/
+forge-*
+CREDITS-fml.txt
 /cpw
 /ibxm
 /net

@@ -15,42 +15,49 @@ buildscript {
     }
 }
 
-apply plugin: 'java'
 apply plugin: 'forge'
 
-sourceCompatibility = '1.6'
-targetCompatibility = '1.7'
-
-version = project.properties['version']
-group = "vdvman1.betterAnvil.BetterAnvil"
-archivesBaseName = "BetterAnvil"
+version = "3.2.2-NM"
+group= "vdvman1.betterAnvil.BetterAnvil" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
+archivesBaseName = "modid"
 
 minecraft {
-    version = project.properties['forge_version']
-    runDir = "build"
-    replace "@VERSION@", project.version
+    version = "1.7.10-10.13.4.1614-1.7.10"
+    runDir = "eclipse"
 }
 
-processResources {
+dependencies {
+    // you may put jars on which you depend on in ./libs
+    // or you may define them like so..
+    //compile "some.group:artifact:version:classifier"
+    //compile "some.group:artifact:version"
+      
+    // real examples
+    //compile 'com.mod-buildcraft:buildcraft:6.0.8:dev'  // adds buildcraft to the dev env
+    //compile 'com.googlecode.efficient-java-matrix-library:ejml:0.24' // adds ejml to the dev env
+
+    // for more info...
+    // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
+    // http://www.gradle.org/docs/current/userguide/dependency_management.html
+
+}
+
+processResources
+{
+    // this will ensure that this task is redone when the versions change.
     inputs.property "version", project.version
     inputs.property "mcversion", project.minecraft.version
+
+    // replace stuff in mcmod.info, nothing else
     from(sourceSets.main.resources.srcDirs) {
         include 'mcmod.info'
+                
+        // replace version and mcversion
         expand 'version':project.version, 'mcversion':project.minecraft.version
     }
+        
+    // copy everything else, thats not the mcmod.info
     from(sourceSets.main.resources.srcDirs) {
         exclude 'mcmod.info'
     }
 }
-
-task makeSourcesJar(type: Jar) {
-    from sourceSets.main.allSource
-    classifier = 'src'
-}
-
-task makeDeobfuscatedJar(type: Jar) {
-    from sourceSets.main.output
-    classifier = 'dev'
-}
-
-build.dependsOn makeSourcesJar, makeDeobfuscatedJar
