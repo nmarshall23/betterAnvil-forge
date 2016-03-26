@@ -15,7 +15,11 @@ buildscript {
     }
 }
 
+apply plugin: 'java'
 apply plugin: 'forge'
+
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
 
 version = "3.2.2-NM"
 group= "vdvman1.betterAnvil.BetterAnvil" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
