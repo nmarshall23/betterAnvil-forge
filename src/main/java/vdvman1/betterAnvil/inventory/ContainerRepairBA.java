@@ -44,6 +44,7 @@ public final class ContainerRepairBA extends ContainerRepair {
     
     //Currently renaming only
     public boolean isRenamingOnly = false;
+    public boolean isRenaming = false;
     public boolean hadOutput = false;
     public boolean hasCustomRecipe = false;
 
@@ -99,7 +100,7 @@ public final class ContainerRepairBA extends ContainerRepair {
     	stack.getRepairCost();
     }
     
-    private int lookupEnchantmentsRepairCost(Map<Integer, Integer> enchantmentsOnItem, int itemEnchantability) {
+    private int calcEnchantmentsRepairCost(Map<Integer, Integer> enchantmentsOnItem, int itemEnchantability) {
         int totalCost = enchantmentsOnItem.keySet().stream().mapToInt( key -> {
         	Enchantment enchantment = Enchantment.enchantmentsList[key];
         	int weight = 0;
@@ -182,14 +183,14 @@ public final class ContainerRepairBA extends ContainerRepair {
     
     private double calcAmountRepaired(ItemStack stack1,ItemStack stack2) {
     	// use same type of item to repair
-    	if(stack1.getItem() == stack2.getItem() && stack1.getItem().isRepairable()) {
-            double item2durabilityremaining = stack2.getMaxDamage() - stack2.getItemDamage();
-            double bonusRepairAmount = item2durabilityremaining * Config.mainRepairBonusPercent;
-            
-            return item2durabilityremaining + bonusRepairAmount;
-    	}
+    	//if(stack1.getItem() == stack2.getItem() && stack1.getItem().isRepairable()) {
+         //   double item2durabilityremaining = stack2.getMaxDamage() - stack2.getItemDamage();
+          //  double bonusRepairAmount = item2durabilityremaining * Config.mainRepairBonusPercent;
+           // 
+            //return item2durabilityremaining + bonusRepairAmount;
+    	//}
     	
-    	if(stack1.getItem().getIsRepairable(stack1, stack2)) {
+    //	if(stack1.getItem().getIsRepairable(stack1, stack2)) {
     		
             double item1DamageAmount = stack1.getMaxDamage() - stack1.getItemDamage();
             int maxDurability = stack1.getMaxDamage();
@@ -210,31 +211,123 @@ public final class ContainerRepairBA extends ContainerRepair {
             }
             
             return numberOfItemsUsed * repairAmountPerItem * Config.mainRepairBonusPercent;
-        }
+     //   }
     	
-    	return 0.0;
+    	//return 0.0;
     }
     
+    private boolean itemToBeRepaired(ItemStack stack1 , ItemStack stack2) {
+    	if(stack1.isItemDamaged() && stack1.getItem().getIsRepairable(stack1, stack2)) {
+    		return true;
+    	}
+    	return false;
+    }
+    
+    private boolean itemhasBeenRenamed(ItemStack stack1) {
+    	if (this.repairedItemName != null 
+        		&& this.repairedItemName.length() > 0
+                && !this.repairedItemName.equals(stack1.getDisplayName()) ) {
+        		
+    		return true;
+        		//workStack.setStackDisplayName(this.repairedItemName);
+        	}
+		return false;
+    }
+    
+    /**
+     * Updates the repair Output GUI slot
+     * 
+     * There are several outcomes 
+     * - If items have custom recipe do that.
+     * - If the name field has changed change the output items name.
+     * - If slot1 and slot2 are both enchanged books, merge the enchantments
+     * - If slot1 is a repairable item, and slot2 is material used to repair it. calc costs if any to repair item
+     * - If slot1 is a item and slot2 has a enchanged book, move that enchantment to the item.  calc cost.
+     * 
+     */
     @SuppressWarnings("unchecked")
     @Override
     public void updateRepairOutput() {
     	
         Optional<ItemStack> stack1Opt = Optional.ofNullable(inputSlots.getStackInSlot(0));
         Optional<ItemStack> stack2Opt = Optional.ofNullable(inputSlots.getStackInSlot(1));
-    	
         
+        stack1Opt.ifPresent(stack1 ->{
+			ItemStack workStack = stack1.copy();
+			
+ // Check if Player is renaming Item
+			if(itemhasBeenRenamed(stack1)) {
+				workStack.setStackDisplayName(this.repairedItemName);
+				this.isRenaming = true;
+			} else {
+				this.isRenaming = false;
+			}
+			
+			
+        	BetterAnvil.BETTER_ANVIL_LOGGER.info(
+        			String.format("What is stack1: %s", stack1.getDisplayName() ));
+        
+        	stack2Opt.ifPresent( stack2 ->{
+        		
+        		BetterAnvil.BETTER_ANVIL_LOGGER.info(
+        			String.format("What is stack2: %s", stack2.getDisplayName() ));
+        	
+ // Check for Custom Recipe
+				this.hasCustomRecipe = true;
+        		if (!ForgeHooks.onAnvilChange(this, stack1, stack2, outputSlot, repairedItemName, 0))
+        			return;
+				this.hasCustomRecipe = false;
+
+				
+        		double repairCost = 0;
+        		double repairAmount = 0;
+        	
+
+
+// Check if Repairing Item with material
+				if(itemToBeRepaired(stack1, stack2)) {
+					repairAmount = calcAmountRepaired(stack1, stack2);
+					if(stack1.isItemEnchanted() || stack2.isItemEnchanted()) {
+						Map<Integer, Integer> enchantmentsOnItem = (Map<Integer, Integer>)EnchantmentHelper.getEnchantments(workStack);
+		        		
+		        		int itemEnchantability = Optional.ofNullable(workStack.getItem().getItemEnchantability()).orElse(5);
+		        		
+		        		repairCost += calcEnchantmentsRepairCost(enchantmentsOnItem, itemEnchantability);
+		        		
+		        		// Set Outputs
+		        		workStack.setItemDamage((int)Math.round(workStack.getItemDamage() - repairAmount));
+		        		
+		        		this.maximumCost = (int) Math.round(repairCost * Config.costMultiplier);
+		                
+		                this.outputSlot.setInventorySlotContents(0, workStack);
+		                this.hadOutput = true;
+					}
+				}
+				else if(this.isRenaming) {
+					this.outputSlot.setInventorySlotContents(0, workStack);
+				}
+				
+				
+        		});
+		});
+        
+        
+        // Output is empty if nothing is being worked on.
+        if(!stack1Opt.isPresent()) {
+        	this.outputSlot.setInventorySlotContents(0, null);
+        }
+        
+        // Output is empty if item isn't being renamed or if no other item is here
+        if(!stack2Opt.isPresent() && !this.isRenaming) {
+        	this.outputSlot.setInventorySlotContents(0, null);
+        }
+        
+        /*
         stack1Opt.ifPresent( stack1 -> {
         	ItemStack workStack = stack1.copy();
         	
 // Renaming
-        	if (this.repairedItemName != null 
-        		&& this.repairedItemName.length() > 0
-                && !this.repairedItemName.equals(stack1.getDisplayName()) 
-                && !(this.repairedItemName.equals(new ItemStack(Items.book).getDisplayName()) )) {
-        		
-        		workStack.setStackDisplayName(this.repairedItemName);
-        		this.isRenamingOnly = true;
-        	}
+
         	
         	stack2Opt.ifPresent( stack2 -> {
         		
@@ -278,7 +371,7 @@ public final class ContainerRepairBA extends ContainerRepair {
                 }
         	});
         });
-        
+        */
     }
     
     
