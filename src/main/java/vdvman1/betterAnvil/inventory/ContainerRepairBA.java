@@ -6,7 +6,14 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.init.Items;
 import net.minecraft.inventory.*;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemArmor;
+import net.minecraft.item.ItemAxe;
+import net.minecraft.item.ItemHoe;
+import net.minecraft.item.ItemPickaxe;
+import net.minecraft.item.ItemSpade;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.ItemSword;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 import net.minecraftforge.common.ForgeHooks;
@@ -20,6 +27,7 @@ import vdvman1.betterAnvil.common.*;
 
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 public final class ContainerRepairBA extends ContainerRepair {
@@ -108,7 +116,7 @@ public final class ContainerRepairBA extends ContainerRepair {
         	switch (enchantment.getWeight())
             {
                 case 1:
-                	weight = 8;
+                	weight = 6;
                     break;
                 case 2:
                 case 3:
@@ -128,7 +136,8 @@ public final class ContainerRepairBA extends ContainerRepair {
             }
         	
         	int level = enchantmentsOnItem.get(key);
-        	int cost = level * weight * (9 / itemEnchantability );
+        	int cost = level * weight;
+//        	int cost = level * weight * (10 / itemEnchantability );
         	return cost;
         }).sum();
         
@@ -165,55 +174,84 @@ public final class ContainerRepairBA extends ContainerRepair {
        
     }
    
+    private <T> T doFuncIfTool(ItemStack stack, Function<ItemStack, T> mapper) {
+    	Item item = stack.getItem();
+    	
+    	
+    	if(item instanceof ItemSword || item instanceof ItemPickaxe 
+    			|| item instanceof ItemSpade || item instanceof ItemAxe || item instanceof ItemHoe) {
+    		return null;
+    	}
+    	
+    	return null;
+    }
     
-    private double calcRepairAmountPerItem(ItemStack stack1) {
-    	Set<String> toolClasses = stack1.getItem().getToolClasses(stack1);
+    private int numberOfRepairItemsForType(ItemStack stack) {
+    	Item item = stack.getItem();
+    	if(item instanceof ItemSpade) {
+    		return 1;
+    	}
     	
-        BetterAnvil.BETTER_ANVIL_LOGGER.debug(String.format("What tool Classes does stack1 %s have? Tool Class %s!", stack1.toString(), toolClasses.size()));
-        
-        toolClasses.forEach( tc -> {
-        	BetterAnvil.BETTER_ANVIL_LOGGER.debug(String.format("Tool Class %s", tc));
-        });
+    	if(item instanceof ItemSword || item instanceof ItemHoe) {
+    		return 2;
+    	}
+    	
+    	if(item instanceof ItemPickaxe || item instanceof ItemAxe) {
+    		return 3;
+    	}
+    	
+    	if(item instanceof ItemArmor) {
+    		return 5;
+    	}
+    	
+    	return 4;
+    }
+    
+    private double bonusRepairForEnchants(int enchantability) {
+		int enchantDvisor = 10;
+		double bonusRepairForEnchants = Math.max(enchantability / enchantDvisor, 1);
+    	return bonusRepairForEnchants;
+    }
+    
+    private double calcRepairAmountPerItem(ItemStack stack, int numberOfItems) {
+    	int MaxDamage = stack.getItem().getMaxDamage();
+    	
+    	double baseRepair = (MaxDamage / numberOfItems);
+    	double repairBonusAmount = 1.2;
+    	//Config.mainRepairBonusPercent);
+//    	double perItem = (baseRepair * Config.mainRepairBonusPercent) + baseRepair;
+    	double perItem = (baseRepair * repairBonusAmount);
 
+    	if(stack.isItemEnchanted()) {
+    		int enchantability = stack.getItem().getItemEnchantability();
+    		double bonusRepairForEnchants = bonusRepairForEnchants(enchantability);
+    		
+    		perItem = (perItem * bonusRepairForEnchants ) + perItem;
+    	}
     	
-    	//Config.itemRepairAmount;	
-    	return 1;
+    	return perItem;
     }
     
     
-    private double calcAmountRepaired(ItemStack stack1,ItemStack stack2) {
-    	// use same type of item to repair
-    	//if(stack1.getItem() == stack2.getItem() && stack1.getItem().isRepairable()) {
-         //   double item2durabilityremaining = stack2.getMaxDamage() - stack2.getItemDamage();
-          //  double bonusRepairAmount = item2durabilityremaining * Config.mainRepairBonusPercent;
-           // 
-            //return item2durabilityremaining + bonusRepairAmount;
-    	//}
-    	
-    //	if(stack1.getItem().getIsRepairable(stack1, stack2)) {
-    		
-            double item1DamageAmount = stack1.getMaxDamage() - stack1.getItemDamage();
-            int maxDurability = stack1.getMaxDamage();
-            int numOfRepairItems = stack2.stackSize;
-            double repairAmountPerItem = calcRepairAmountPerItem(stack1);
+    private int calcAmountRepaired(ItemStack stack1, ItemStack stack2, double repairAmountPerItem) {
+		double item1DamageAmount = stack1.getMaxDamage() - stack1.getItemDamage();
+		int maxDurability = stack1.getMaxDamage();
+		int numOfRepairItems = stack2.stackSize;
             
-            int numberOfItemsUsed = 0;
+		int numberOfItemsUsed = 0;
             		
-            for(int i = 0; i < numOfRepairItems && item1DamageAmount < maxDurability; i++) {
-            	item1DamageAmount += item1DamageAmount + (repairAmountPerItem * Config.mainRepairBonusPercent);
-            	numberOfItemsUsed++;
-            }
+		for(int i = 0; i < numOfRepairItems && item1DamageAmount < maxDurability; i++) {
+			item1DamageAmount += repairAmountPerItem;
+			numberOfItemsUsed++;
+		}
             
-            this.resultInputStack = stack2.copy();
-            this.resultInputStack.stackSize = stack2.stackSize - numberOfItemsUsed;
-            if(this.resultInputStack.stackSize == 0) {
-                this.resultInputStack = null;
-            }
+        this.resultInputStack = stack2.copy();
+        this.resultInputStack.stackSize = stack2.stackSize - numberOfItemsUsed;
+        if(this.resultInputStack.stackSize == 0) {
+			this.resultInputStack = null;
+		}
             
-            return numberOfItemsUsed * repairAmountPerItem * Config.mainRepairBonusPercent;
-     //   }
-    	
-    	//return 0.0;
+		return numberOfItemsUsed;
     }
     
     private boolean itemToBeRepaired(ItemStack stack1 , ItemStack stack2) {
@@ -269,8 +307,6 @@ public final class ContainerRepairBA extends ContainerRepair {
         
         	stack2Opt.ifPresent( stack2 ->{
         		
-        		BetterAnvil.BETTER_ANVIL_LOGGER.info(
-        			String.format("What is stack2: %s", stack2.getDisplayName() ));
         	
  // Check for Custom Recipe
 				this.hasCustomRecipe = true;
@@ -286,25 +322,52 @@ public final class ContainerRepairBA extends ContainerRepair {
 
 // Check if Repairing Item with material
 				if(itemToBeRepaired(stack1, stack2)) {
-					repairAmount = calcAmountRepaired(stack1, stack2);
+					int numOfItemsNeeded = numberOfRepairItemsForType(stack1);
+					double repairAmountPerItem = calcRepairAmountPerItem(stack1, numOfItemsNeeded);
+					int numItemsToUse = calcAmountRepaired(stack1, stack2, repairAmountPerItem);
+					
+					
 					if(stack1.isItemEnchanted() || stack2.isItemEnchanted()) {
 						Map<Integer, Integer> enchantmentsOnItem = (Map<Integer, Integer>)EnchantmentHelper.getEnchantments(workStack);
 		        		
 		        		int itemEnchantability = Optional.ofNullable(workStack.getItem().getItemEnchantability()).orElse(5);
+		        		repairCost += ( calcEnchantmentsRepairCost(enchantmentsOnItem, itemEnchantability) * numItemsToUse * 0.5);
 		        		
-		        		repairCost += calcEnchantmentsRepairCost(enchantmentsOnItem, itemEnchantability);
-		        		
-		        		// Set Outputs
-		        		workStack.setItemDamage((int)Math.round(workStack.getItemDamage() - repairAmount));
-		        		
-		        		this.maximumCost = (int) Math.round(repairCost * Config.costMultiplier);
-		                
-		                this.outputSlot.setInventorySlotContents(0, workStack);
-		                this.hadOutput = true;
+		        		double enchantablityRepairBonus = bonusRepairForEnchants(itemEnchantability);
+						repairAmount = repairAmountPerItem * numItemsToUse * enchantablityRepairBonus;
+						
+					BetterAnvil.BETTER_ANVIL_LOGGER.info(
+        			String.format("repairAmountPerItem: %s numItems: %s enchantablityRepairBonus: %s", repairAmountPerItem, numItemsToUse, enchantablityRepairBonus ));
+						
+					} else {
+						repairAmount = repairAmountPerItem * numItemsToUse;
+						
+						
+						BetterAnvil.BETTER_ANVIL_LOGGER.info(
+						String.format("repairAmountPerItem: %s numItems: %s" , repairAmountPerItem, numItemsToUse));
 					}
+					
+					BetterAnvil.BETTER_ANVIL_LOGGER.info(
+        			String.format("Repairing: %s costs: %s", repairAmount, repairCost ));
+					// Set Outputs
+		        	workStack.setItemDamage((int)Math.round(workStack.getItemDamage() - repairAmount));
+		        		
+		        	this.maximumCost = (int) Math.round(repairCost); // * Config.costMultiplier);
+		                
+		            this.outputSlot.setInventorySlotContents(0, workStack);
+		            this.hadOutput = true;
+					
 				}
 				else if(this.isRenaming) {
+        		BetterAnvil.BETTER_ANVIL_LOGGER.info(
+        			String.format("Item has been renamed!"));
 					this.outputSlot.setInventorySlotContents(0, workStack);
+					this.maximumCost = 0;
+		            this.hadOutput = true;
+				} else {
+				// if we didn't set outputslot then it's most likely stale	
+					this.maximumCost = 0;
+					this.outputSlot.setInventorySlotContents(0, null);
 				}
 				
 				
@@ -315,11 +378,13 @@ public final class ContainerRepairBA extends ContainerRepair {
         // Output is empty if nothing is being worked on.
         if(!stack1Opt.isPresent()) {
         	this.outputSlot.setInventorySlotContents(0, null);
+			this.maximumCost = 0;
         }
         
         // Output is empty if item isn't being renamed or if no other item is here
         if(!stack2Opt.isPresent() && !this.isRenaming) {
         	this.outputSlot.setInventorySlotContents(0, null);
+			this.maximumCost = 0;
         }
         
         /*
