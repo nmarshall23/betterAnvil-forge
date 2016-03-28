@@ -18,12 +18,15 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 import net.minecraftforge.common.ForgeHooks;
 
+
 import org.apache.commons.lang3.StringUtils;
+
 
 import scala.collection.immutable.Stream;
 import vdvman1.betterAnvil.BetterAnvil;
 import vdvman1.betterAnvil.block.BlockAnvilBA;
 import vdvman1.betterAnvil.common.*;
+
 
 import java.util.*;
 import java.util.Map.Entry;
@@ -108,7 +111,7 @@ public final class ContainerRepairBA extends ContainerRepair {
     	stack.getRepairCost();
     }
     
-    private int calcEnchantmentsRepairCost(Map<Integer, Integer> enchantmentsOnItem, int itemEnchantability) {
+    private int calcEnchantmentsRepairCost(Map<Integer, Integer> enchantmentsOnItem) {
         int totalCost = enchantmentsOnItem.keySet().stream().mapToInt( key -> {
         	Enchantment enchantment = Enchantment.enchantmentsList[key];
         	int weight = 0;
@@ -137,7 +140,6 @@ public final class ContainerRepairBA extends ContainerRepair {
         	
         	int level = enchantmentsOnItem.get(key);
         	int cost = level * weight;
-//        	int cost = level * weight * (10 / itemEnchantability );
         	return cost;
         }).sum();
         
@@ -186,6 +188,23 @@ public final class ContainerRepairBA extends ContainerRepair {
     	return null;
     }
     
+    @SuppressWarnings("unchecked")
+    private CombinedEnchantments combindEnchants(ItemStack stack1, ItemStack stack2) {
+    	Map<Integer, Integer> enchantments1 = (Map<Integer, Integer>)EnchantmentHelper.getEnchantments(stack1);
+		Map<Integer, Integer> enchantments2 = (Map<Integer, Integer>)EnchantmentHelper.getEnchantments(stack2);
+            
+		ItemStack notEnchanted = stack1.copy();
+        EnchantmentHelper.setEnchantments(new HashMap<Integer, Integer>(), notEnchanted);
+        
+        //Enchanted item + same enchanted item = item with incompatible enchantments and item with compatible enchantments
+        CombinedEnchantments combined = Utils.combine(enchantments1, enchantments2, stack1);
+        if (combined == null) {
+			BetterAnvil.BETTER_ANVIL_LOGGER.warn(String.format("Failed to combine enchants from item stack %s and item stack %s!", stack1.toString(), stack2.toString()));
+        }
+         
+        return combined;
+    }
+    
     private int numberOfRepairItemsForType(ItemStack stack) {
     	Item item = stack.getItem();
     	if(item instanceof ItemSpade) {
@@ -201,7 +220,7 @@ public final class ContainerRepairBA extends ContainerRepair {
     	}
     	
     	if(item instanceof ItemArmor) {
-    		return 5;
+    		return 4;
     	}
     	
     	return 4;
@@ -244,21 +263,53 @@ public final class ContainerRepairBA extends ContainerRepair {
 			item1DamageAmount += repairAmountPerItem;
 			numberOfItemsUsed++;
 		}
-            
-        this.resultInputStack = stack2.copy();
-        this.resultInputStack.stackSize = stack2.stackSize - numberOfItemsUsed;
-        if(this.resultInputStack.stackSize == 0) {
-			this.resultInputStack = null;
-		}
-            
+           
 		return numberOfItemsUsed;
+   
     }
     
-    private boolean itemToBeRepaired(ItemStack stack1 , ItemStack stack2) {
+    private double calcPercentageRepairedByMaterialUnit(ItemStack stack) {
+    	int numberUsedToCraft = numberOfRepairItemsForType(stack);
+    	
+    	int itemType = 12;
+    	
+    	if(stack.getItem() instanceof ItemArmor) {
+    		itemType = 9;
+    	}
+    	
+    	int itemEnchantability = stack.getItem().getItemEnchantability();
+    	double enchantablityFactor = Math.max(itemEnchantability / itemType, 1.0);
+    	
+    	return (1 / numberUsedToCraft) * enchantablityFactor;
+    }
+    
+    private boolean isRepairWithMaterial(ItemStack stack1 , ItemStack stack2) {
     	if(stack1.isItemDamaged() && stack1.getItem().getIsRepairable(stack1, stack2)) {
     		return true;
     	}
     	return false;
+    }
+    
+    private boolean isRepairWithSameItem(ItemStack stack1 , ItemStack stack2) {
+        if(stack1.getItem() == stack2.getItem() && stack1.getItem().isRepairable()) {
+        	return true;
+        }
+		return false;
+     
+    }
+    
+    private boolean isAddingEnchantToItem(ItemStack stack1 , ItemStack stack2) {
+        if(stack2.getItem() == Items.enchanted_book) {
+        	return true;
+        }
+		return false;
+    }
+    
+    private boolean isMergingEnchantedBooks(ItemStack stack1 , ItemStack stack2) {
+        if(stack1.getItem() == Items.enchanted_book && stack2.getItem() == Items.enchanted_book) {
+        	return true;
+        }
+		return false;
     }
     
     private boolean itemhasBeenRenamed(ItemStack stack1) {
@@ -318,35 +369,78 @@ public final class ContainerRepairBA extends ContainerRepair {
         		double repairCost = 0;
         		double repairAmount = 0;
         	
-
-
-// Check if Repairing Item with material
-				if(itemToBeRepaired(stack1, stack2)) {
-					int numOfItemsNeeded = numberOfRepairItemsForType(stack1);
-					double repairAmountPerItem = calcRepairAmountPerItem(stack1, numOfItemsNeeded);
-					int numItemsToUse = calcAmountRepaired(stack1, stack2, repairAmountPerItem);
+        		if(isMergingEnchantedBooks(stack1, stack2)) {
+					CombinedEnchantments combined = combindEnchants(stack1, stack2);
+					EnchantmentHelper.setEnchantments(combined.compatEnchList, workStack);
+					repairCost += combined.repairCost;
 					
+					BetterAnvil.BETTER_ANVIL_LOGGER.info(
+		        			String.format("Repairing: %s costs: %s", repairAmount, repairCost ));
+							// Set Outputs
+				        		
+				    this.maximumCost = (int) Math.round(repairCost); // * Config.costMultiplier);
+				                
+				    this.outputSlot.setInventorySlotContents(0, workStack);
+				    this.hadOutput = true;
+        		}
+        		else if(isAddingEnchantToItem(stack1, stack2)) {
+					CombinedEnchantments combined = combindEnchants(stack1, stack2);
+					EnchantmentHelper.setEnchantments(combined.compatEnchList, workStack);
+					repairCost += combined.repairCost;
+					
+					BetterAnvil.BETTER_ANVIL_LOGGER.info(
+		        			String.format("Repairing: %s costs: %s", repairAmount, repairCost ));
+							// Set Outputs
+				        		
+				    this.maximumCost = (int) Math.round(repairCost); // * Config.costMultiplier);
+				                
+				    this.outputSlot.setInventorySlotContents(0, workStack);
+				    this.hadOutput = true;
+        		}
+        		else if(isRepairWithSameItem(stack1, stack2)) {
+					double amount = stack2.getMaxDamage() - stack2.getItemDamage();
+					repairAmount += amount;
+            
+					if(stack1.isItemEnchanted() || stack2.isItemEnchanted()) {
+						
+						CombinedEnchantments combined = combindEnchants(stack1, stack2);
+						EnchantmentHelper.setEnchantments(combined.compatEnchList, workStack);
+						repairCost += combined.repairCost;
+					}
+					
+					BetterAnvil.BETTER_ANVIL_LOGGER.info(
+		        			String.format("Repairing: %s costs: %s", repairAmount, repairCost ));
+							// Set Outputs
+					workStack.setItemDamage((int)Math.round(workStack.getItemDamage() - repairAmount));
+				        		
+				    this.maximumCost = (int) Math.round(repairCost); // * Config.costMultiplier);
+				                
+				    this.outputSlot.setInventorySlotContents(0, workStack);
+				    this.hadOutput = true;
+        		} 
+// Check if Repairing Item with material
+        		else if(isRepairWithMaterial(stack1, stack2)) {
+					int maxDurability = stack1.getItemDamage();
+					double repairPercentage = calcPercentageRepairedByMaterialUnit(stack1);
+					double repairAmountPerItem = maxDurability * repairPercentage;
+					int numItemsToUse = calcAmountRepaired(stack1, stack2, repairAmountPerItem);
+				
+					// Reduce material stack
+					this.resultInputStack = stack2.copy();
+					this.resultInputStack.stackSize = stack2.stackSize - numItemsToUse;
+					if(this.resultInputStack.stackSize == 0) {
+						this.resultInputStack = null;
+					}
+         
+					repairAmount = repairAmountPerItem * numItemsToUse;
 					
 					if(stack1.isItemEnchanted() || stack2.isItemEnchanted()) {
 						Map<Integer, Integer> enchantmentsOnItem = (Map<Integer, Integer>)EnchantmentHelper.getEnchantments(workStack);
 		        		
-		        		int itemEnchantability = Optional.ofNullable(workStack.getItem().getItemEnchantability()).orElse(5);
-		        		repairCost += ( calcEnchantmentsRepairCost(enchantmentsOnItem, itemEnchantability) * numItemsToUse * 0.5);
-		        		
-		        		double enchantablityRepairBonus = bonusRepairForEnchants(itemEnchantability);
-						repairAmount = repairAmountPerItem * numItemsToUse * enchantablityRepairBonus;
-						
-					BetterAnvil.BETTER_ANVIL_LOGGER.info(
-        			String.format("repairAmountPerItem: %s numItems: %s enchantablityRepairBonus: %s", repairAmountPerItem, numItemsToUse, enchantablityRepairBonus ));
-						
-					} else {
-						repairAmount = repairAmountPerItem * numItemsToUse;
-						
-						
-						BetterAnvil.BETTER_ANVIL_LOGGER.info(
-						String.format("repairAmountPerItem: %s numItems: %s" , repairAmountPerItem, numItemsToUse));
-					}
-					
+		        		//int itemEnchantability = Optional.ofNullable(workStack.getItem().getItemEnchantability()).orElse(5);
+		        		repairCost += ( calcEnchantmentsRepairCost(enchantmentsOnItem) * numItemsToUse * 0.5);
+					} 
+				
 					BetterAnvil.BETTER_ANVIL_LOGGER.info(
         			String.format("Repairing: %s costs: %s", repairAmount, repairCost ));
 					// Set Outputs
@@ -388,53 +482,14 @@ public final class ContainerRepairBA extends ContainerRepair {
         }
         
         /*
-        stack1Opt.ifPresent( stack1 -> {
-        	ItemStack workStack = stack1.copy();
-        	
-// Renaming
-
-        	
-        	stack2Opt.ifPresent( stack2 -> {
-        		
-// Custom Recipe Check
-        		if (!ForgeHooks.onAnvilChange(this, stack1, stack2, outputSlot, repairedItemName, 0)) {
-					this.hasCustomRecipe = true;
-					return;
-				} else {
-					this.hasCustomRecipe = false;
-				}
-        		
-        		double repairCost = 0;
-        		double repairAmount = 0;
-// Repairing
-        		repairAmount = calcAmountRepaired(stack1, stack2);
-        		if(stack1.isItemEnchanted() || stack2.isItemEnchanted()) {
-        			repairCost += repairAmount / 100;
-                } 
+       
         		
         		
         		
 // Transfering Enchantments
         		
-// Calcuate Cost of enchantmentsOnItem
-        		Map<Integer, Integer> enchantmentsOnItem = (Map<Integer, Integer>)EnchantmentHelper.getEnchantments(workStack);
         		
-        		int itemEnchantability = Optional.ofNullable(workStack.getItem().getItemEnchantability()).orElse(5);
         		
-        		repairCost += lookupEnchantmentsRepairCost(enchantmentsOnItem, itemEnchantability);
-        		
-        		// Set Outputs
-        		workStack.setItemDamage((int)Math.round(workStack.getItemDamage() - repairAmount));
-                this.maximumCost = (int) Math.round(repairCost * Config.costMultiplier);
-                
-                if(this.maximumCost > 0 || this.isRenamingOnly) {
-                    this.outputSlot.setInventorySlotContents(0, workStack);
-                    this.hadOutput = true;
-                }
-                if(!this.getSlot(2).canTakeStack(thePlayer)) {
-                    this.outputSlot.setInventorySlotContents(0, null);
-                }
-        	});
         });
         */
     }
