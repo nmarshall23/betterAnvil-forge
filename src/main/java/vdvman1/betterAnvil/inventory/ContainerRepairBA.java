@@ -55,7 +55,11 @@ public final class ContainerRepairBA extends ContainerRepair {
     
     //Currently renaming only
     public boolean isRenamingOnly = false;
-    public boolean isRenaming = false;
+    
+    private boolean isRenaming = false;
+    private boolean isRepairing = false;
+    private boolean isMergingEnchants = false;
+    
     public boolean hadOutput = false;
     public boolean hasCustomRecipe = false;
 
@@ -192,9 +196,6 @@ public final class ContainerRepairBA extends ContainerRepair {
     private CombinedEnchantments combindEnchants(ItemStack stack1, ItemStack stack2) {
     	Map<Integer, Integer> enchantments1 = (Map<Integer, Integer>)EnchantmentHelper.getEnchantments(stack1);
 		Map<Integer, Integer> enchantments2 = (Map<Integer, Integer>)EnchantmentHelper.getEnchantments(stack2);
-            
-		ItemStack notEnchanted = stack1.copy();
-        EnchantmentHelper.setEnchantments(new HashMap<Integer, Integer>(), notEnchanted);
         
         //Enchanted item + same enchanted item = item with incompatible enchantments and item with compatible enchantments
         CombinedEnchantments combined = Utils.combine(enchantments1, enchantments2, stack1);
@@ -346,6 +347,10 @@ public final class ContainerRepairBA extends ContainerRepair {
     	
         Optional<ItemStack> stack1Opt = Optional.ofNullable(inputSlots.getStackInSlot(0));
         Optional<ItemStack> stack2Opt = Optional.ofNullable(inputSlots.getStackInSlot(1));
+        this.isRenaming = false;
+        this.isRepairing = false;
+        this.isMergingEnchants = false;
+		this.hadOutput = false;
         
         stack1Opt.ifPresent(stack1 ->{
 			ItemStack workStack = stack1.copy();
@@ -354,10 +359,9 @@ public final class ContainerRepairBA extends ContainerRepair {
 			if(itemhasBeenRenamed(stack1)) {
 				workStack.setStackDisplayName(this.repairedItemName);
 				this.isRenaming = true;
-			} else {
-				this.isRenaming = false;
-			}
-			
+				this.outputSlot.setInventorySlotContents(0, workStack);
+				this.hadOutput = true;
+			} 	
 			
         	BetterAnvil.BETTER_ANVIL_LOGGER.info(
         			String.format("What is stack1: %s", stack1.getDisplayName() ));
@@ -367,16 +371,25 @@ public final class ContainerRepairBA extends ContainerRepair {
         	
  // Check for Custom Recipe
 				this.hasCustomRecipe = true;
-        		if (!ForgeHooks.onAnvilChange(this, stack1, stack2, outputSlot, repairedItemName, 0))
+        		if (!ForgeHooks.onAnvilChange(this, stack1, stack2, outputSlot, repairedItemName, 0)) {
+				    this.hadOutput = true;
         			return;
+        		}
+        		
 				this.hasCustomRecipe = false;
 
 				
         		double repairCost = 0;
         		double repairAmount = 0;
-        	
+        
+        		//XXX Add check that enchants are mergable
         		if(isMergingEnchantedBooks(stack1, stack2)) {
 					CombinedEnchantments combined = combindEnchants(stack1, stack2);
+					/*
+					ItemStack notEnchanted = workStack.copy();
+					EnchantmentHelper.setEnchantments(new HashMap<Integer, Integer>(), notEnchanted);
+					*/
+					
 					EnchantmentHelper.setEnchantments(combined.compatEnchList, workStack);
 					repairCost += combined.repairCost;
 					
@@ -390,6 +403,8 @@ public final class ContainerRepairBA extends ContainerRepair {
 				    this.hadOutput = true;
         		}
         		else if(isAddingEnchantToItem(stack1, stack2)) {
+        		//XXX Add check that enchants are mergable
+        			
 					CombinedEnchantments combined = combindEnchants(stack1, stack2);
 					EnchantmentHelper.setEnchantments(combined.compatEnchList, workStack);
 					repairCost += combined.repairCost;
@@ -474,19 +489,23 @@ public final class ContainerRepairBA extends ContainerRepair {
 				
         		});
 		});
-        
+       
+        if(!this.hadOutput) {
+        	this.outputSlot.setInventorySlotContents(0, null);
+			this.maximumCost = 0;
+        }         
         
         // Output is empty if nothing is being worked on.
-        if(!stack1Opt.isPresent()) {
+        /*if(!stack1Opt.isPresent()) {
         	this.outputSlot.setInventorySlotContents(0, null);
 			this.maximumCost = 0;
-        }
+        } */
         
         // Output is empty if item isn't being renamed or if no other item is here
-        if(!stack2Opt.isPresent() && !this.isRenaming) {
-        	this.outputSlot.setInventorySlotContents(0, null);
-			this.maximumCost = 0;
-        }
+        //if(!stack2Opt.isPresent() && !this.isRenaming) {
+        //	this.outputSlot.setInventorySlotContents(0, null);
+		//	this.maximumCost = 0;
+        //}
         
         /*
        
