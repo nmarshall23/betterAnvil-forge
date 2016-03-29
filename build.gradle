@@ -21,9 +21,9 @@ apply plugin: 'forge'
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
-version = "3.2.2-NM"
+version = "4.0.0-NM"
 group= "vdvman1.betterAnvil.BetterAnvil" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
-archivesBaseName = "modid"
+archivesBaseName = "BetterAnvil"
 
 minecraft {
     version = "1.7.10-10.13.4.1614-1.7.10"
