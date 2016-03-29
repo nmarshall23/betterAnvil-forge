@@ -271,16 +271,22 @@ public final class ContainerRepairBA extends ContainerRepair {
     private double calcPercentageRepairedByMaterialUnit(ItemStack stack) {
     	int numberUsedToCraft = numberOfRepairItemsForType(stack);
     	
-    	int itemType = 12;
+    	double itemType = 12;
     	
     	if(stack.getItem() instanceof ItemArmor) {
     		itemType = 9;
     	}
     	
     	int itemEnchantability = stack.getItem().getItemEnchantability();
-    	double enchantablityFactor = Math.max(itemEnchantability / itemType, 1.0);
+    	double enchantablityFactor = itemEnchantability / itemType;
     	
-    	return (1 / numberUsedToCraft) * enchantablityFactor;
+    	double percentage = (1.0 / numberUsedToCraft) * enchantablityFactor;
+    	
+		BetterAnvil.BETTER_ANVIL_LOGGER.info(
+			String.format("calcPercentageRepairedByMaterialUnit - numberUsedToCraft: %s, itemEnchantability: %s itemType: %s, enchantablityFactor: %s, percentage: %s", 
+					numberUsedToCraft, itemEnchantability, itemType, enchantablityFactor, percentage ));
+    	
+    	return percentage;
     }
     
     private boolean isRepairWithMaterial(ItemStack stack1 , ItemStack stack2) {
@@ -389,7 +395,7 @@ public final class ContainerRepairBA extends ContainerRepair {
 					repairCost += combined.repairCost;
 					
 					BetterAnvil.BETTER_ANVIL_LOGGER.info(
-		        			String.format("Repairing: %s costs: %s", repairAmount, repairCost ));
+		        			String.format("Adding Enchant Repairing: %s costs: %s", repairAmount, repairCost ));
 							// Set Outputs
 				        		
 				    this.maximumCost = (int) Math.round(repairCost); // * Config.costMultiplier);
@@ -409,7 +415,7 @@ public final class ContainerRepairBA extends ContainerRepair {
 					}
 					
 					BetterAnvil.BETTER_ANVIL_LOGGER.info(
-		        			String.format("Repairing: %s costs: %s", repairAmount, repairCost ));
+		        			String.format("Repairing with Item Repairing: %s costs: %s", repairAmount, repairCost ));
 							// Set Outputs
 					workStack.setItemDamage((int)Math.round(workStack.getItemDamage() - repairAmount));
 				        		
@@ -442,7 +448,8 @@ public final class ContainerRepairBA extends ContainerRepair {
 					} 
 				
 					BetterAnvil.BETTER_ANVIL_LOGGER.info(
-        			String.format("Repairing: %s costs: %s", repairAmount, repairCost ));
+        			String.format("Repairing with Material Repairing: %s costs: %s repairPercentage: %s, repairPerItem: %s", 
+        					repairAmount, repairCost, repairPercentage, repairAmountPerItem, numItemsToUse ));
 					// Set Outputs
 		        	workStack.setItemDamage((int)Math.round(workStack.getItemDamage() - repairAmount));
 		        		
