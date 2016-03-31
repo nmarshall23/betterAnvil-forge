@@ -9,6 +9,7 @@ import net.minecraft.inventory.*;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemArmor;
 import net.minecraft.item.ItemAxe;
+import net.minecraft.item.ItemBow;
 import net.minecraft.item.ItemHoe;
 import net.minecraft.item.ItemPickaxe;
 import net.minecraft.item.ItemSpade;
@@ -18,15 +19,12 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 import net.minecraftforge.common.ForgeHooks;
 
-
 import org.apache.commons.lang3.StringUtils;
-
 
 import scala.collection.immutable.Stream;
 import vdvman1.betterAnvil.BetterAnvil;
 import vdvman1.betterAnvil.block.BlockAnvilBA;
 import vdvman1.betterAnvil.common.*;
-
 
 import java.util.*;
 import java.util.Map.Entry;
@@ -57,8 +55,6 @@ public final class ContainerRepairBA extends ContainerRepair {
     public boolean isRenamingOnly = false;
     
     private boolean isRenaming = false;
-    private boolean isRepairing = false;
-    private boolean isMergingEnchants = false;
     
     public boolean hadOutput = false;
     public boolean hasCustomRecipe = false;
@@ -103,47 +99,57 @@ public final class ContainerRepairBA extends ContainerRepair {
     public void onCraftMatrixChanged(IInventory iInventory) {
         super.onCraftMatrixChanged(iInventory);
         if (iInventory == inputSlots) {
-            if(Config.isLegacyMode) {
-            	updateRepairOutputOld();
-            } else {
-            	updateRepairOutput();
-            }
+			updateRepairOutput();
         }
     }
     
-    private void foo(ItemStack stack) {
-    	stack.getRepairCost();
-    }
-    
-    private int calcEnchantmentsRepairCost(Map<Integer, Integer> enchantmentsOnItem) {
-        int totalCost = enchantmentsOnItem.keySet().stream().mapToInt( key -> {
+    private double calcEnchantmentsRepairCost(Map<Integer, Integer> enchantmentsOnItem) {
+    	double totalCost = enchantmentsOnItem.keySet().stream().mapToDouble( key -> {
         	Enchantment enchantment = Enchantment.enchantmentsList[key];
-        	int weight = 0;
+        	double weight = 0;
+       
+        	if( enchantment == Enchantment.thorns) {
+				weight += 2;
+        	}
+        	
+        	switch (enchantment.getMaxLevel()) {
+        		case 1:
+                	weight += 2;
+                    break;
+        		case 2:
+                	weight += 0.5;
+                    break;
+        	}
         	
         	switch (enchantment.getWeight())
             {
                 case 1:
-                	weight = 6;
+                	weight += 4.0;
                     break;
                 case 2:
+                	weight += 3.0;
+                    break;
                 case 3:
+                	weight += 2.25;
+                    break;
                 case 4:
                 default:
-                	weight = 4;
+                	weight += 1.5;
                     break;
                 case 5:
+                	weight += 0.75;
+                    break;
                 case 6:
                 case 7:
                 case 8:
                 case 9:
-                	weight = 2;
-                    break;
                 case 10:
-                	weight = 1;
+                	weight += 0.5;
             }
         	
         	int level = enchantmentsOnItem.get(key);
-        	int cost = level * weight;
+        	
+        	double cost = level * weight;
         	return cost;
         }).sum();
         
@@ -212,7 +218,7 @@ public final class ContainerRepairBA extends ContainerRepair {
     		return 1;
     	}
     	
-    	if(item instanceof ItemSword || item instanceof ItemHoe) {
+    	if(item instanceof ItemSword || item instanceof ItemHoe || item instanceof ItemBow) {
     		return 2;
     	}
     	
@@ -231,25 +237,6 @@ public final class ContainerRepairBA extends ContainerRepair {
 		int enchantDvisor = 10;
 		double bonusRepairForEnchants = Math.max(enchantability / enchantDvisor, 1);
     	return bonusRepairForEnchants;
-    }
-    
-    private double calcRepairAmountPerItem(ItemStack stack, int numberOfItems) {
-    	int MaxDamage = stack.getItem().getMaxDamage();
-    	
-    	double baseRepair = (MaxDamage / numberOfItems);
-    	double repairBonusAmount = 1.2;
-    	//Config.mainRepairBonusPercent);
-//    	double perItem = (baseRepair * Config.mainRepairBonusPercent) + baseRepair;
-    	double perItem = (baseRepair * repairBonusAmount);
-
-    	if(stack.isItemEnchanted()) {
-    		int enchantability = stack.getItem().getItemEnchantability();
-    		double bonusRepairForEnchants = bonusRepairForEnchants(enchantability);
-    		
-    		perItem = (perItem * bonusRepairForEnchants ) + perItem;
-    	}
-    	
-    	return perItem;
     }
     
     
@@ -348,8 +335,6 @@ public final class ContainerRepairBA extends ContainerRepair {
         Optional<ItemStack> stack1Opt = Optional.ofNullable(inputSlots.getStackInSlot(0));
         Optional<ItemStack> stack2Opt = Optional.ofNullable(inputSlots.getStackInSlot(1));
         this.isRenaming = false;
-        this.isRepairing = false;
-        this.isMergingEnchants = false;
 		this.hadOutput = false;
         
         stack1Opt.ifPresent(stack1 ->{
@@ -457,9 +442,7 @@ public final class ContainerRepairBA extends ContainerRepair {
 					
 					if(stack1.isItemEnchanted() || stack2.isItemEnchanted()) {
 						Map<Integer, Integer> enchantmentsOnItem = (Map<Integer, Integer>)EnchantmentHelper.getEnchantments(workStack);
-		        		
-		        		//int itemEnchantability = Optional.ofNullable(workStack.getItem().getItemEnchantability()).orElse(5);
-		        		repairCost += ( calcEnchantmentsRepairCost(enchantmentsOnItem) * numItemsToUse * 0.5);
+		        		repairCost += ( calcEnchantmentsRepairCost(enchantmentsOnItem) * numItemsToUse );
 					} 
 				
 					BetterAnvil.BETTER_ANVIL_LOGGER.info(
