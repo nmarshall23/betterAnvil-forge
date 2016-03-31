@@ -59,22 +59,22 @@ public final class SlotRepairBA extends Slot {
         ContainerRepairBA.getRepairInputInventory(this.anvil).setInventorySlotContents(1, slot1Stack);
         this.anvil.maximumCost = 0;
 
-        if (!entityPlayer.capabilities.isCreativeMode && !this.theWorld.isRemote && this.theWorld.getBlock(this.blockPosX, this.blockPosY, this.blockPosZ) instanceof BlockAnvilBA && entityPlayer.getRNG().nextFloat() < Config.breakChance) {
-            int blockMetadata = this.theWorld.getBlockMetadata(this.blockPosX, this.blockPosY, this.blockPosZ);
-            int blockOrientation = blockMetadata & 3;
-            int blockDamage = blockMetadata >> 2;
-            ++blockDamage;
-
-            if (blockDamage > 2) {
-                this.theWorld.setBlockToAir(this.blockPosX, this.blockPosY, this.blockPosZ);
-                this.theWorld.playAuxSFX(1020, this.blockPosX, this.blockPosY, this.blockPosZ, 0);
-            } else {
-                this.theWorld.setBlockMetadataWithNotify(this.blockPosX, this.blockPosY, this.blockPosZ, blockOrientation | blockDamage << 2, 2);
-                this.theWorld.playAuxSFX(1021, this.blockPosX, this.blockPosY, this.blockPosZ, 0);
-            }
-        } else if (!this.theWorld.isRemote) {
-            this.theWorld.playAuxSFX(1021, this.blockPosX, this.blockPosY, this.blockPosZ, 0);
-        }
+//        if (!entityPlayer.capabilities.isCreativeMode && !this.theWorld.isRemote && this.theWorld.getBlock(this.blockPosX, this.blockPosY, this.blockPosZ) instanceof BlockAnvilBA && entityPlayer.getRNG().nextFloat() < Config.breakChance) {
+//            int blockMetadata = this.theWorld.getBlockMetadata(this.blockPosX, this.blockPosY, this.blockPosZ);
+//            int blockOrientation = blockMetadata & 3;
+//            int blockDamage = blockMetadata >> 2;
+//            ++blockDamage;
+//
+//            if (blockDamage > 2) {
+//                this.theWorld.setBlockToAir(this.blockPosX, this.blockPosY, this.blockPosZ);
+//                this.theWorld.playAuxSFX(1020, this.blockPosX, this.blockPosY, this.blockPosZ, 0);
+//            } else {
+//                this.theWorld.setBlockMetadataWithNotify(this.blockPosX, this.blockPosY, this.blockPosZ, blockOrientation | blockDamage << 2, 2);
+//                this.theWorld.playAuxSFX(1021, this.blockPosX, this.blockPosY, this.blockPosZ, 0);
+//            }
+//        } else if (!this.theWorld.isRemote) {
+//            this.theWorld.playAuxSFX(1021, this.blockPosX, this.blockPosY, this.blockPosZ, 0);
+//        }
         this.anvil.detectAndSendChanges();
     }
 
