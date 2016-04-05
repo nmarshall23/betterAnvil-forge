@@ -10,8 +10,10 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemArmor;
 import net.minecraft.item.ItemAxe;
 import net.minecraft.item.ItemBow;
+import net.minecraft.item.ItemFishingRod;
 import net.minecraft.item.ItemHoe;
 import net.minecraft.item.ItemPickaxe;
+import net.minecraft.item.ItemShears;
 import net.minecraft.item.ItemSpade;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemSword;
@@ -214,23 +216,48 @@ public final class ContainerRepairBA extends ContainerRepair {
     
     private int numberOfRepairItemsForType(ItemStack stack) {
     	Item item = stack.getItem();
+    	
     	if(item instanceof ItemSpade) {
     		return 1;
     	}
     	
-    	if(item instanceof ItemSword || item instanceof ItemHoe || item instanceof ItemBow) {
+    	if(item instanceof ItemSword || item instanceof ItemHoe || item instanceof ItemBow || item instanceof ItemShears ) {
     		return 2;
     	}
     	
-    	if(item instanceof ItemPickaxe || item instanceof ItemAxe) {
+    	if(item instanceof ItemPickaxe || item instanceof ItemAxe || item instanceof ItemFishingRod) {
     		return 3;
     	}
     	
     	if(item instanceof ItemArmor) {
-    		return 4;
+    		ItemArmor armor = (ItemArmor) item;
+    		switch(armor.armorType) {
+				case 0: // HELMET
+				case 3: // BOOTS
+					return 3;
+				case 1: // CHESTPLATE
+				case 2: // LEGGINGS
+					return 4;
+    		}
+    		
     	}
     	
-    	return 4;
+    	int costByToolClass = item.getToolClasses(stack).stream().mapToInt(toolClass -> {
+    		switch (toolClass) {
+				case "shovel":
+					return 1;
+				case "pickaxe":
+				case "axe":
+					return 3;
+				case "sickle":
+				case "hammer":
+					return 4;
+				default:
+					return 4;
+			}
+    	}).max().orElse(4);
+    	
+    	return costByToolClass;
     }
     
     private double bonusRepairForEnchants(int enchantability) {
