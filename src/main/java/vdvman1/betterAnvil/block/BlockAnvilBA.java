@@ -17,10 +17,10 @@ public final class BlockAnvilBA extends BlockAnvil implements ITileEntityProvide
 
     //Icon names
     private static final String[] BETTER_ANVIL_ICON_NAMES = new String[] {
-            BetterAnvil.MOD_ID.toLowerCase() + ":" + "better_anvil_base",
-            BetterAnvil.MOD_ID.toLowerCase() + ":" + "better_anvil_top_damaged_0",
-            BetterAnvil.MOD_ID.toLowerCase() + ":" + "better_anvil_top_damaged_1",
-            BetterAnvil.MOD_ID.toLowerCase() + ":" + "better_anvil_top_damaged_2"
+    	"anvil_base",
+    	"anvil_top_damaged_0",
+            //BetterAnvil.MOD_ID.toLowerCase() + ":" + "better_anvil_base",
+			//BetterAnvil.MOD_ID.toLowerCase() + ":" + "better_anvil_top_damaged_0"
     };
 
     @SideOnly(Side.CLIENT)
@@ -42,7 +42,9 @@ public final class BlockAnvilBA extends BlockAnvil implements ITileEntityProvide
     @Override
     @SideOnly(Side.CLIENT)
     public IIcon getIcon(int side, int meta) {
-        if (anvilRenderSide == 3 && side == 1) return anvilIcons[((meta >> 2) + 1) % anvilIcons.length];
+        if (anvilRenderSide == 3 && side == 1) {
+        	return anvilIcons[1];
+        }
         return anvilIcons[0];
     }
 
