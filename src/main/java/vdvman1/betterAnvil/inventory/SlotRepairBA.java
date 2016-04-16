@@ -41,7 +41,7 @@ public final class SlotRepairBA extends Slot {
      */
     @Override
     public boolean canTakeStack(EntityPlayer entityPlayer) {
-        return (entityPlayer.capabilities.isCreativeMode || entityPlayer.experienceLevel >= this.anvil.maximumCost) && (this.anvil.maximumCost > 0 || this.anvil.isRenamingOnly) && this.getHasStack();
+        return (entityPlayer.capabilities.isCreativeMode || entityPlayer.experienceLevel >= this.anvil.maximumCost) && (this.anvil.hadOutput || this.anvil.isRenaming) && this.getHasStack();
     }
 
     @Override

@@ -71,7 +71,8 @@ public final class BetterAnvil {
     //Called during initialization, used for registering everything etc.
     @EventHandler
     public void init(FMLInitializationEvent event) {
-        GameRegistry.addShapedRecipe(new ItemStack(BetterAnvil.BLOCK_BETTER_ANVIL, 1, 0), "DAD", "XDX", 'X', Items.iron_ingot, 'A', new ItemStack(Blocks.anvil, 1, 0), 'D', Items.diamond);//Only use a new anvil (that is not damaged) for the crafting recipe.
+        GameRegistry.addShapedRecipe(new ItemStack(BetterAnvil.BLOCK_BETTER_ANVIL, 1, 0), "DAD", "XDX", 'X', Items.iron_ingot, 'A', new ItemStack(Blocks.anvil, 1, 0), 'D', Items.diamond);
+        //Only use a new anvil (that is not damaged) for the crafting recipe.
 
         MinecraftForge.EVENT_BUS.register(EventHandlerBA.INSTANCE);
         FMLCommonHandler.instance().bus().register(EventHandlerBA.INSTANCE);

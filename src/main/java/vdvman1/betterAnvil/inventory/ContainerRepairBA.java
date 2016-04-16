@@ -56,7 +56,7 @@ public final class ContainerRepairBA extends ContainerRepair {
     //Currently renaming only
     public boolean isRenamingOnly = false;
     
-    private boolean isRenaming = false;
+    public boolean isRenaming = false;
     
     public boolean hadOutput = false;
     public boolean hasCustomRecipe = false;
@@ -95,6 +95,18 @@ public final class ContainerRepairBA extends ContainerRepair {
     }
     
     /**
+     * Check for Heat Source
+     * 
+     */
+    private boolean hasHeatSource() {
+    	
+    	//this.theWorld.isAirBlock(x, y, z);
+    	//this.theWorld.getBlock(x, y, z).collisionRayTrace(p_149731_1_, p_149731_2_, p_149731_3_, p_149731_4_, p_149731_5_, p_149731_6_)
+    	return false;
+    }
+    
+    
+    /**
      * Callback for when the crafting matrix is changed.
      */
     @Override
@@ -108,50 +120,57 @@ public final class ContainerRepairBA extends ContainerRepair {
     private double calcEnchantmentsRepairCost(Map<Integer, Integer> enchantmentsOnItem) {
     	double totalCost = enchantmentsOnItem.keySet().stream().mapToDouble( key -> {
         	Enchantment enchantment = Enchantment.enchantmentsList[key];
-        	double weight = 0;
+        	double weightCost = 0.0;
+        	double levelCost = 0.0;
        
         	if( enchantment == Enchantment.thorns) {
-				weight += 2;
+        		weightCost += 2;
         	}
         	
         	switch (enchantment.getMaxLevel()) {
         		case 1:
-                	weight += 2;
+        			levelCost += 2;
                     break;
         		case 2:
-                	weight += 0.5;
+        			levelCost += 0.5;
+                    break;
+        		case 3:
+        			levelCost += 0.25;
+                    break;
+        		default:
+        			levelCost += 0.10;
                     break;
         	}
         	
         	switch (enchantment.getWeight())
             {
                 case 1:
-                	weight += 4.0;
+                	weightCost += 4.0;
                     break;
                 case 2:
-                	weight += 3.0;
+                	weightCost += 3.0;
                     break;
                 case 3:
-                	weight += 2.25;
+                	weightCost += 2.25;
                     break;
                 case 4:
                 default:
-                	weight += 1.5;
+                	weightCost += 1.5;
                     break;
                 case 5:
-                	weight += 0.75;
+                	weightCost += 0.75;
                     break;
                 case 6:
                 case 7:
                 case 8:
                 case 9:
                 case 10:
-                	weight += 0.5;
+                	weightCost += 0.5;
             }
         	
         	int level = enchantmentsOnItem.get(key);
         	
-        	double cost = level * weight;
+        	double cost = level * weightCost * levelCost;
         	return cost;
         }).sum();
         
@@ -188,17 +207,6 @@ public final class ContainerRepairBA extends ContainerRepair {
        
     }
    
-    private <T> T doFuncIfTool(ItemStack stack, Function<ItemStack, T> mapper) {
-    	Item item = stack.getItem();
-    	
-    	
-    	if(item instanceof ItemSword || item instanceof ItemPickaxe 
-    			|| item instanceof ItemSpade || item instanceof ItemAxe || item instanceof ItemHoe) {
-    		return null;
-    	}
-    	
-    	return null;
-    }
     
     @SuppressWarnings("unchecked")
     private CombinedEnchantments combindEnchants(ItemStack stack1, ItemStack stack2) {
@@ -214,14 +222,62 @@ public final class ContainerRepairBA extends ContainerRepair {
         return combined;
     }
     
-    private int numberOfRepairItemsForType(ItemStack stack) {
+    private double xpCostForType(ItemStack stack) {
     	Item item = stack.getItem();
     	
-    	if(item instanceof ItemSpade) {
+    	if(item instanceof ItemSpade || item instanceof ItemHoe || item instanceof ItemShears || item instanceof ItemFishingRod) {
+    		return 0.75;
+    	}
+    	
+    	if(item instanceof ItemSword || item instanceof ItemBow ) {
+    		return 1.25;
+    	}
+    	
+    	if(item instanceof ItemPickaxe || item instanceof ItemAxe ) {
     		return 1;
     	}
     	
-    	if(item instanceof ItemSword || item instanceof ItemHoe || item instanceof ItemBow || item instanceof ItemShears ) {
+    	if(item instanceof ItemArmor) {
+    		ItemArmor armor = (ItemArmor) item;
+    		switch(armor.armorType) {
+				case 0: // HELMET
+				case 3: // BOOTS
+					return 0.75;
+				case 1: // CHESTPLATE
+				case 2: // LEGGINGS
+					return 1;
+    		}
+    		
+    	}
+    	
+    	// If Check by JavaClass didn't find work. Use Tool Class
+    	double costByToolClass = item.getToolClasses(stack).stream().mapToDouble(toolClass -> {
+    		switch (toolClass) {
+				case "shovel":
+				case "shear":
+				case "hoe":
+					return 0.75;
+				case "pickaxe":
+				case "axe":
+				case "sickle":
+					return 1;
+				case "hammer":
+				default:
+					return 1.10;
+			}
+    	}).max().orElse(2);
+    	
+    	return costByToolClass;
+    }
+    
+    private int numberOfRepairItemsForType(ItemStack stack) {
+    	Item item = stack.getItem();
+    	
+    	if(item instanceof ItemSpade || item instanceof ItemHoe || item instanceof ItemShears ) {
+    		return 1;
+    	}
+    	
+    	if(item instanceof ItemSword || item instanceof ItemBow ) {
     		return 2;
     	}
     	
@@ -245,13 +301,14 @@ public final class ContainerRepairBA extends ContainerRepair {
     	int costByToolClass = item.getToolClasses(stack).stream().mapToInt(toolClass -> {
     		switch (toolClass) {
 				case "shovel":
+				case "shear":
+				case "hoe":
 					return 1;
 				case "pickaxe":
 				case "axe":
-					return 3;
 				case "sickle":
+					return 3;
 				case "hammer":
-					return 4;
 				default:
 					return 4;
 			}
@@ -367,12 +424,12 @@ public final class ContainerRepairBA extends ContainerRepair {
         stack1Opt.ifPresent(stack1 ->{
 			ItemStack workStack = stack1.copy();
 			
+			
  // Check if Player is renaming Item
 			if(itemhasBeenRenamed(stack1)) {
 				workStack.setStackDisplayName(this.repairedItemName);
 				this.isRenaming = true;
 				this.outputSlot.setInventorySlotContents(0, workStack);
-				this.hadOutput = true;
 			} 	
 			
         	BetterAnvil.BETTER_ANVIL_LOGGER.info(
@@ -407,11 +464,7 @@ public final class ContainerRepairBA extends ContainerRepair {
 					
 					BetterAnvil.BETTER_ANVIL_LOGGER.info(
 		        			String.format("Repairing: %s costs: %s", repairAmount, repairCost ));
-							// Set Outputs
 				        		
-				    this.maximumCost = (int) Math.round(repairCost); // * Config.costMultiplier);
-				                
-				    this.outputSlot.setInventorySlotContents(0, workStack);
 				    this.hadOutput = true;
         		}
         		else if(isAddingEnchantToItem(stack1, stack2)) {
@@ -423,16 +476,11 @@ public final class ContainerRepairBA extends ContainerRepair {
 					
 					BetterAnvil.BETTER_ANVIL_LOGGER.info(
 		        			String.format("Adding Enchant Repairing: %s costs: %s", repairAmount, repairCost ));
-							// Set Outputs
-				        		
-				    this.maximumCost = (int) Math.round(repairCost); // * Config.costMultiplier);
-				                
-				    this.outputSlot.setInventorySlotContents(0, workStack);
 				    this.hadOutput = true;
         		}
         		else if(isRepairWithSameItem(stack1, stack2)) {
 					double amount = stack2.getMaxDamage() - stack2.getItemDamage();
-					repairAmount += amount;
+					repairAmount += Math.max(amount, 0);
             
 					if(stack1.isItemEnchanted() || stack2.isItemEnchanted()) {
 						
@@ -443,12 +491,7 @@ public final class ContainerRepairBA extends ContainerRepair {
 					
 					BetterAnvil.BETTER_ANVIL_LOGGER.info(
 		        			String.format("Repairing with Item Repairing: %s costs: %s", repairAmount, repairCost ));
-							// Set Outputs
-					workStack.setItemDamage((int)Math.round(workStack.getItemDamage() - repairAmount));
-				        		
-				    this.maximumCost = (int) Math.round(repairCost); // * Config.costMultiplier);
 				                
-				    this.outputSlot.setInventorySlotContents(0, workStack);
 				    this.hadOutput = true;
         		} 
 // Check if Repairing Item with material
@@ -469,41 +512,38 @@ public final class ContainerRepairBA extends ContainerRepair {
 					
 					if(stack1.isItemEnchanted() || stack2.isItemEnchanted()) {
 						Map<Integer, Integer> enchantmentsOnItem = (Map<Integer, Integer>)EnchantmentHelper.getEnchantments(workStack);
-		        		repairCost += ( calcEnchantmentsRepairCost(enchantmentsOnItem) * numItemsToUse );
+						double enchantmentsCost = calcEnchantmentsRepairCost(enchantmentsOnItem);
+						double stackTypeCost = xpCostForType(stack1);
+		        		repairCost += ( enchantmentsCost * stackTypeCost * numItemsToUse );
 					} 
 				
 					BetterAnvil.BETTER_ANVIL_LOGGER.info(
         			String.format("Repairing with Material Repairing: %s costs: %s repairPercentage: %s, repairPerItem: %s", 
         					repairAmount, repairCost, repairPercentage, repairAmountPerItem, numItemsToUse ));
-					// Set Outputs
-		        	workStack.setItemDamage((int)Math.round(workStack.getItemDamage() - repairAmount));
-		        		
-		        	this.maximumCost = (int) Math.round(repairCost); // * Config.costMultiplier);
-		                
-		            this.outputSlot.setInventorySlotContents(0, workStack);
-		            this.hadOutput = true;
 					
-				}
-				else if(this.isRenaming) {
-        		BetterAnvil.BETTER_ANVIL_LOGGER.info(
-        			String.format("Item has been renamed!"));
-					this.outputSlot.setInventorySlotContents(0, workStack);
-					this.maximumCost = 0;
 		            this.hadOutput = true;
-				} else {
-				// if we didn't set outputslot then it's most likely stale	
-					this.maximumCost = 0;
-					this.outputSlot.setInventorySlotContents(0, null);
 				}
 				
-				
+				if(this.hadOutput) {
+					workStack.setItemDamage((int)Math.round(workStack.getItemDamage() - repairAmount));
+					
+					this.outputSlot.setInventorySlotContents(0, workStack);
+					this.maximumCost = (int) Math.round(repairCost); // * Config.costMultiplier);
+				}
+        		
         		});
+        	
 		});
-       
-        if(!this.hadOutput) {
+      
+        
+        BetterAnvil.BETTER_ANVIL_LOGGER.info(
+    			String.format("UPdateRepair Done. Output? %s Renaming? %s XP Cost: %s", this.hadOutput, this.isRenaming, this.maximumCost));
+        
+        if(!this.hadOutput && !this.isRenaming) {
         	this.outputSlot.setInventorySlotContents(0, null);
 			this.maximumCost = 0;
-        }         
+        }
+        
         
         // Output is empty if nothing is being worked on.
         /*if(!stack1Opt.isPresent()) {
