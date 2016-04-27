@@ -1,5 +1,6 @@
 package vdvman1.betterAnvil.inventory;
 
+import net.minecraft.block.Block;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.player.EntityPlayer;
@@ -17,7 +18,9 @@ import net.minecraft.item.ItemShears;
 import net.minecraft.item.ItemSpade;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemSword;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.world.World;
 import net.minecraftforge.common.ForgeHooks;
 
@@ -44,6 +47,8 @@ public final class ContainerRepairBA extends ContainerRepair {
     private final int y;
     private final int z;
 
+    private static final String RoT_Repair_NBT_TAG = "repairs";
+    
     /** determined by damage of input item and stackSize of repair materials */
     private int stackSizeToBeUsedInRepair = 0;
     public ItemStack resultInputStack = null;
@@ -60,6 +65,7 @@ public final class ContainerRepairBA extends ContainerRepair {
     
     public boolean hadOutput = false;
     public boolean hasCustomRecipe = false;
+    public Optional<ChunkCoordinates> heatSource = Optional.empty();
 
     public ContainerRepairBA(InventoryPlayer inventoryPlayer, World world, int x, int y, int z, EntityPlayer entityPlayer) {
         super(inventoryPlayer, world, x, y, z, entityPlayer);
@@ -100,9 +106,29 @@ public final class ContainerRepairBA extends ContainerRepair {
      */
     private boolean hasHeatSource() {
     	
-    	//this.theWorld.isAirBlock(x, y, z);
-    	//this.theWorld.getBlock(x, y, z).collisionRayTrace(p_149731_1_, p_149731_2_, p_149731_3_, p_149731_4_, p_149731_5_, p_149731_6_)
-    	return false;
+    	
+    	if (!this.theWorld.isRemote) {
+    		
+    		String name = this.theWorld.getBlock(x, y, z).getUnlocalizedName();
+    		
+    			BetterAnvil.BETTER_ANVIL_LOGGER.info(
+        			String.format("hasHeatSource: %s Name: %s", this.heatSource.isPresent(), name ));
+    		//Check if heatSource is defined, and that block providing heat is still there.
+    		boolean hasHeat = this.heatSource.map(heat -> LocateBlockUtil.isHeatSourceAtCoordinates(theWorld, heat)).orElse(false);
+    	
+    		if(!hasHeat) {
+    			// Look for another heatsource
+    			heatSource = LocateBlockUtil.LocateHeatSource(theWorld, x, y, z, 3);
+    			
+    			BetterAnvil.BETTER_ANVIL_LOGGER.info(
+        			String.format("hasHeatSource located new heatSource: %s", this.heatSource.isPresent() ));
+    		}
+    		
+    		return heatSource.isPresent();
+    	} 
+    	
+    	return true;
+    	
     }
     
     
@@ -361,6 +387,52 @@ public final class ContainerRepairBA extends ContainerRepair {
     	return percentage;
     }
     
+    private boolean hasRepairNBT(ItemStack stack) {
+    	Optional<NBTTagCompound> tag = Optional.ofNullable(stack.getTagCompound());
+    
+    	// returns false if NBT is Null.
+    	// returns false if does not have Tag.
+    	return tag.map(t -> 
+    				   t.hasKey(RoT_Repair_NBT_TAG) )
+    			  .orElse(false);
+    	
+    }
+    
+    private void restoreRepairNBT(ItemStack stack) {
+    	int maxDamage = stack.getMaxDamage();
+    	stack.stackTagCompound.setInteger(RoT_Repair_NBT_TAG, maxDamage);
+    }
+    
+    private boolean min1lvlCost(ItemStack stack) {
+    	String name = stack.getItem().getUnlocalizedName();
+    	List<String> names =new ArrayList<String>();
+    	names.add("item.flammpfeil.slashblade.wood");
+    	names.add("item.flammpfeil.slashblade.bamboo");
+    	names.add("item.flammpfeil.slashblade.silverbamboo");
+    	names.add("item.flammpfeil.slashblade.white");
+    	names.add("item.flammpfeil.slashblade.named");
+    	names.add("item.flammpfeil.slashblade.named.yamato.broken");
+    	names.add("item.flammpfeil.slashblade.named.yamato");
+    	names.add("item.flammpfeil.slashblade.named.tagayasan");
+    	names.add("item.flammpfeil.slashblade.named.yuzukitukumo");
+    	names.add("item.flammpfeil.slashblade.named.agito");
+    	names.add("item.flammpfeil.slashblade.named.orotiagito");
+    	names.add("item.flammpfeil.slashblade.named.sange");
+    	names.add("item.flammpfeil.slashblade.named.yasha");
+    	names.add("item.flammpfeil.slashblade.named.yashatrue");
+    	names.add("item.flammpfeil.slashblade.named.fox.white");
+    	names.add("item.flammpfeil.slashblade.named.fox.black");
+    	names.add("item.flammpfeil.slashblade.named.muramasa");
+    	names.add("item.flammpfeil.slashblade.named.sabigatana");
+    	names.add("item.flammpfeil.slashblade.named.doutanuki");
+    	names.add("item.flammpfeil.slashblade.named.koseki");
+    	
+    	BetterAnvil.BETTER_ANVIL_LOGGER.info(
+    			String.format("Check name of item: %s", name));
+    	
+    	return names.contains(name);
+    }
+    
     private boolean isRepairWithMaterial(ItemStack stack1 , ItemStack stack2) {
     	if(stack1.isItemDamaged() && stack1.getItem().getIsRepairable(stack1, stack2)) {
     		return true;
@@ -420,6 +492,15 @@ public final class ContainerRepairBA extends ContainerRepair {
         Optional<ItemStack> stack2Opt = Optional.ofNullable(inputSlots.getStackInSlot(1));
         this.isRenaming = false;
 		this.hadOutput = false;
+		
+		boolean heatSource = hasHeatSource();
+		
+		if(!heatSource){
+			return;
+		}
+		
+        BetterAnvil.BETTER_ANVIL_LOGGER.info(
+        			String.format("updateRepairOutput has HeatSource %s", this.heatSource.isPresent() ));
         
         stack1Opt.ifPresent(stack1 ->{
 			ItemStack workStack = stack1.copy();
@@ -523,8 +604,18 @@ public final class ContainerRepairBA extends ContainerRepair {
 					
 		            this.hadOutput = true;
 				}
+        		
 				
 				if(this.hadOutput) {
+					if(hasRepairNBT(workStack)) {
+						restoreRepairNBT(workStack);
+					}
+					
+					if(min1lvlCost(workStack)) {
+						
+						repairCost = repairCost + 1.0;
+					}
+					
 					workStack.setItemDamage((int)Math.round(workStack.getItemDamage() - repairAmount));
 					
 					this.outputSlot.setInventorySlotContents(0, workStack);
@@ -544,30 +635,7 @@ public final class ContainerRepairBA extends ContainerRepair {
 			this.maximumCost = 0;
         }
         
-        
-        // Output is empty if nothing is being worked on.
-        /*if(!stack1Opt.isPresent()) {
-        	this.outputSlot.setInventorySlotContents(0, null);
-			this.maximumCost = 0;
-        } */
-        
-        // Output is empty if item isn't being renamed or if no other item is here
-        //if(!stack2Opt.isPresent() && !this.isRenaming) {
-        //	this.outputSlot.setInventorySlotContents(0, null);
-		//	this.maximumCost = 0;
-        //}
-        
-        /*
-       
-        		
-        		
-        		
-// Transfering Enchantments
-        		
-        		
-        		
-        });
-        */
+
     }
     
     

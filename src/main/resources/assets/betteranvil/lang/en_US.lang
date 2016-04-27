@@ -29,3 +29,4 @@ tile.betterAnvil.slightlyDamaged.name=Slightly Damaged Better Anvil
 tile.betterAnvil.veryDamaged.name=Very Damaged Better Anvil
 
 container.betteranvil=Repair
+container.repair.noheatSource=No heat source! 
