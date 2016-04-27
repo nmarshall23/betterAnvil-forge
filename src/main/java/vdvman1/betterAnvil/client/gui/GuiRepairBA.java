@@ -69,24 +69,24 @@ public final class GuiRepairBA extends GuiContainer implements ICrafting {
         GL11.glDisable(GL11.GL_LIGHTING);
         this.fontRendererObj.drawString(StatCollector.translateToLocal("container.repair"), 60, 6, 4210752);
         
-        if (!this.repairContainer.heatSource.isPresent()) {
-            int colour = 8453920;
-        	String noheatSource = StatCollector.translateToLocal("container.repair.noheatSource");
-        	int finalColour = -16777216 | (colour & 16579836) >> 2 | colour & -16777216;
-            int stringX = (xSize - 8) - fontRendererObj.getStringWidth(noheatSource);
-            byte stringY = 67;
-            if (fontRendererObj.getUnicodeFlag()) {
-                Gui.drawRect(stringX - 3, stringY - 2, xSize - 7, stringY + 10, -16777216);
-                Gui.drawRect(stringX - 2, stringY - 1, xSize - 8, stringY + 9, -12895429);
-            } else {
-                fontRendererObj.drawString(noheatSource, stringX,     stringY + 1, finalColour);
-                fontRendererObj.drawString(noheatSource, stringX + 1, stringY,     finalColour);
-                fontRendererObj.drawString(noheatSource, stringX + 1, stringY + 1, finalColour);
-            }
-            fontRendererObj.drawString(noheatSource, stringX, stringY, colour);
-        }
+//        if (!this.repairContainer.heatSource.isPresent()) {
+//            int colour = 8453920;
+//        	String noheatSource = StatCollector.translateToLocal("container.repair.noheatSource");
+//        	int finalColour = -16777216 | (colour & 16579836) >> 2 | colour & -16777216;
+//            int stringX = (xSize - 8) - fontRendererObj.getStringWidth(noheatSource);
+//            byte stringY = 67;
+//            if (fontRendererObj.getUnicodeFlag()) {
+//                Gui.drawRect(stringX - 3, stringY - 2, xSize - 7, stringY + 10, -16777216);
+//                Gui.drawRect(stringX - 2, stringY - 1, xSize - 8, stringY + 9, -12895429);
+//            } else {
+//                fontRendererObj.drawString(noheatSource, stringX,     stringY + 1, finalColour);
+//                fontRendererObj.drawString(noheatSource, stringX + 1, stringY,     finalColour);
+//                fontRendererObj.drawString(noheatSource, stringX + 1, stringY + 1, finalColour);
+//            }
+//            fontRendererObj.drawString(noheatSource, stringX, stringY, colour);
+//        }
         
-        if (this.repairContainer.hadOutput && this.repairContainer.heatSource.isPresent() ) {
+        if (this.repairContainer.hadOutput ) { //&& this.repairContainer.heatSource.isPresent() ) {
             int colour = 8453920;
             String s = StatCollector.translateToLocalFormatted("container.repair.cost", repairContainer.maximumCost);
             if (!repairContainer.getSlot(2).canTakeStack(playerInventory.player)) {

@@ -493,11 +493,11 @@ public final class ContainerRepairBA extends ContainerRepair {
         this.isRenaming = false;
 		this.hadOutput = false;
 		
-		boolean heatSource = hasHeatSource();
+		//boolean heatSource = hasHeatSource();
 		
-		if(!heatSource){
-			return;
-		}
+		//if(!heatSource){
+		//	return;
+		//}
 		
         BetterAnvil.BETTER_ANVIL_LOGGER.info(
         			String.format("updateRepairOutput has HeatSource %s", this.heatSource.isPresent() ));
