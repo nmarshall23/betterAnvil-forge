@@ -53,9 +53,9 @@ public class LocateBlockUtil {
 		Function<CoordTriple, CoordTriple> loggingMapper = new Function<CoordTriple, CoordTriple>() {
 			public CoordTriple apply(CoordTriple tripl) {
 				    	
-				BetterAnvil.BETTER_ANVIL_LOGGER.info(
-	        			String.format("LocateHeatSource Triple X: %s Y: %s, Z: %s BlockName: %s", 
-	        					tripl.getX(), tripl.getY(), tripl.getZ(), tripl.getBlockAt().getUnlocalizedName()));
+				//BetterAnvil.BETTER_ANVIL_LOGGER.info(
+	        	//		String.format("LocateHeatSource Triple X: %s Y: %s, Z: %s BlockName: %s", 
+	        	//				tripl.getX(), tripl.getY(), tripl.getZ(), tripl.getBlockAt().getUnlocalizedName()));
 				return tripl;
 			}
 		};

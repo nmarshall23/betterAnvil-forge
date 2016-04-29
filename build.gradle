@@ -21,7 +21,7 @@ apply plugin: 'forge'
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
-version = "4.4.0-NM"
+version = "4.5.0-NM"
 //version = project.properties['Version']
 group= "vdvman1.betterAnvil.BetterAnvil" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "BetterAnvil"

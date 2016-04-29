@@ -34,6 +34,7 @@ import vdvman1.betterAnvil.common.*;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 public final class ContainerRepairBA extends ContainerRepair {
@@ -67,6 +68,9 @@ public final class ContainerRepairBA extends ContainerRepair {
     public boolean hasCustomRecipe = false;
     public Optional<ChunkCoordinates> heatSource = Optional.empty();
 
+    private static final String REPAIR_TAG = "RepairCounter";
+
+    
     public ContainerRepairBA(InventoryPlayer inventoryPlayer, World world, int x, int y, int z, EntityPlayer entityPlayer) {
         super(inventoryPlayer, world, x, y, z, entityPlayer);
         TileEntity tile = world.getTileEntity(x, y, z);
@@ -113,22 +117,20 @@ public final class ContainerRepairBA extends ContainerRepair {
     		
     			BetterAnvil.BETTER_ANVIL_LOGGER.info(
         			String.format("hasHeatSource: %s Name: %s", this.heatSource.isPresent(), name ));
-    		//Check if heatSource is defined, and that block providing heat is still there.
-    		boolean hasHeat = this.heatSource.map(heat -> LocateBlockUtil.isHeatSourceAtCoordinates(theWorld, heat)).orElse(false);
-    	
-    		if(!hasHeat) {
-    			// Look for another heatsource
-    			heatSource = LocateBlockUtil.LocateHeatSource(theWorld, x, y, z, 3);
     			
-    			BetterAnvil.BETTER_ANVIL_LOGGER.info(
-        			String.format("hasHeatSource located new heatSource: %s", this.heatSource.isPresent() ));
-    		}
-    		
-    		return heatSource.isPresent();
-    	} 
+    		//Check if heatSource is defined, and that block providing heat is still there.
+    		return this.heatSource.map(heat -> LocateBlockUtil.isHeatSourceAtCoordinates(theWorld, heat)).orElse(false);
+    	
+    	}
     	
     	return true;
     	
+    }
+    
+    
+    private Optional<ChunkCoordinates> locateNewHeatSource() {
+    	
+    	return LocateBlockUtil.LocateHeatSource(theWorld, x, y, z, 3);
     }
     
     
@@ -492,16 +494,24 @@ public final class ContainerRepairBA extends ContainerRepair {
         Optional<ItemStack> stack2Opt = Optional.ofNullable(inputSlots.getStackInSlot(1));
         this.isRenaming = false;
 		this.hadOutput = false;
+
+		this.heatSource = locateNewHeatSource();
 		
-		//boolean heatSource = hasHeatSource();
-		
-		//if(!heatSource){
-		//	return;
-		//}
-		
+        BetterAnvil.BETTER_ANVIL_LOGGER.info(
+        			String.format("updateRepairOutput checking status of HeatSource."));
+	
+        /*
+		if(!hasHeatSource()) {
+			this.heatSource = locateNewHeatSource();
+		}
+		*/
         BetterAnvil.BETTER_ANVIL_LOGGER.info(
         			String.format("updateRepairOutput has HeatSource %s", this.heatSource.isPresent() ));
         
+		if(!this.heatSource.isPresent()) {
+			return;
+		}
+			
         stack1Opt.ifPresent(stack1 ->{
 			ItemStack workStack = stack1.copy();
 			
@@ -613,13 +623,24 @@ public final class ContainerRepairBA extends ContainerRepair {
 					
 					if(min1lvlCost(workStack)) {
 						
-						repairCost = repairCost + 1.0;
+						Supplier<NBTTagCompound> NBTTagCompoundSupplier =
+								() -> {
+									workStack.stackTagCompound = new NBTTagCompound();
+									return workStack.getTagCompound();
+								};
+						
+						repairCost += workStack.getRepairCost();
+						
+						NBTTagCompound tag = Optional.ofNullable(workStack.getTagCompound()).orElseGet(NBTTagCompoundSupplier);
+						int repairCount = Optional.ofNullable(tag.getInteger(REPAIR_TAG)).orElse(0);
+						tag.setInteger(REPAIR_TAG, repairCount + 1);
+						
 					}
 					
 					workStack.setItemDamage((int)Math.round(workStack.getItemDamage() - repairAmount));
 					
 					this.outputSlot.setInventorySlotContents(0, workStack);
-					this.maximumCost = (int) Math.round(repairCost); // * Config.costMultiplier);
+					this.maximumCost = (int) Math.ceil(repairCost); // * Config.costMultiplier);
 				}
         		
         		});
@@ -630,11 +651,11 @@ public final class ContainerRepairBA extends ContainerRepair {
         BetterAnvil.BETTER_ANVIL_LOGGER.info(
     			String.format("UPdateRepair Done. Output? %s Renaming? %s XP Cost: %s", this.hadOutput, this.isRenaming, this.maximumCost));
         
+		
         if(!this.hadOutput && !this.isRenaming) {
         	this.outputSlot.setInventorySlotContents(0, null);
 			this.maximumCost = 0;
         }
-        
 
     }
     

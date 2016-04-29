@@ -64,47 +64,41 @@ public final class GuiRepairBA extends GuiContainer implements ICrafting {
     /**
      * Draw the foreground layer for the GuiContainer (everything in front of the items)
      */
+    
+    private void drawText(String text, int colour) {
+    	int finalColour = -16777216 | (colour & 16579836) >> 2 | colour & -16777216;
+        int stringX = (xSize - 8) - fontRendererObj.getStringWidth(text);
+        byte stringY = 68;
+        if (fontRendererObj.getUnicodeFlag()) {
+            Gui.drawRect(stringX - 3, stringY - 2, xSize - 7, stringY + 10, -16777216);
+            Gui.drawRect(stringX - 2, stringY - 1, xSize - 8, stringY + 9, -12895429);
+        } else {
+            fontRendererObj.drawString(text, stringX,     stringY + 1, finalColour);
+            fontRendererObj.drawString(text, stringX + 1, stringY,     finalColour);
+            fontRendererObj.drawString(text, stringX + 1, stringY + 1, finalColour);
+        }
+        fontRendererObj.drawString(text, stringX, stringY, colour);
+    }
+    
     @Override
     protected void drawGuiContainerForegroundLayer(int mouseX, int mouseY) {
         GL11.glDisable(GL11.GL_LIGHTING);
         this.fontRendererObj.drawString(StatCollector.translateToLocal("container.repair"), 60, 6, 4210752);
         
-//        if (!this.repairContainer.heatSource.isPresent()) {
-//            int colour = 8453920;
-//        	String noheatSource = StatCollector.translateToLocal("container.repair.noheatSource");
-//        	int finalColour = -16777216 | (colour & 16579836) >> 2 | colour & -16777216;
-//            int stringX = (xSize - 8) - fontRendererObj.getStringWidth(noheatSource);
-//            byte stringY = 67;
-//            if (fontRendererObj.getUnicodeFlag()) {
-//                Gui.drawRect(stringX - 3, stringY - 2, xSize - 7, stringY + 10, -16777216);
-//                Gui.drawRect(stringX - 2, stringY - 1, xSize - 8, stringY + 9, -12895429);
-//            } else {
-//                fontRendererObj.drawString(noheatSource, stringX,     stringY + 1, finalColour);
-//                fontRendererObj.drawString(noheatSource, stringX + 1, stringY,     finalColour);
-//                fontRendererObj.drawString(noheatSource, stringX + 1, stringY + 1, finalColour);
-//            }
-//            fontRendererObj.drawString(noheatSource, stringX, stringY, colour);
-//        }
+        if (!this.repairContainer.heatSource.isPresent()) {
+        	String noheatSource = StatCollector.translateToLocal("container.repair.noheatSource");
+        	int colour = 8453920;
+        	drawText(noheatSource, colour);
+        }
         
-        if (this.repairContainer.hadOutput ) { //&& this.repairContainer.heatSource.isPresent() ) {
+        if (this.repairContainer.hadOutput && this.repairContainer.heatSource.isPresent() ) {
             int colour = 8453920;
-            String s = StatCollector.translateToLocalFormatted("container.repair.cost", repairContainer.maximumCost);
+            String cost = StatCollector.translateToLocalFormatted("container.repair.cost", repairContainer.maximumCost);
             if (!repairContainer.getSlot(2).canTakeStack(playerInventory.player)) {
                 colour = 16736352;
             }
             if (repairContainer.hadOutput || repairContainer.hasCustomRecipe) {
-                int finalColour = -16777216 | (colour & 16579836) >> 2 | colour & -16777216;
-                int stringX = (xSize - 8) - fontRendererObj.getStringWidth(s);
-                byte stringY = 67;
-                if (fontRendererObj.getUnicodeFlag()) {
-                    Gui.drawRect(stringX - 3, stringY - 2, xSize - 7, stringY + 10, -16777216);
-                    Gui.drawRect(stringX - 2, stringY - 1, xSize - 8, stringY + 9, -12895429);
-                } else {
-                    fontRendererObj.drawString(s, stringX,     stringY + 1, finalColour);
-                    fontRendererObj.drawString(s, stringX + 1, stringY, finalColour);
-                    fontRendererObj.drawString(s, stringX + 1, stringY + 1, finalColour);
-                }
-                fontRendererObj.drawString(s, stringX, stringY, colour);
+            	drawText(cost, colour);
             }
         }
 
